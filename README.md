@@ -6,6 +6,8 @@ An easy way to perform animations when a [purescript-freedom](https://github.com
 
 [Demo](https://purescript-freedom.github.io/purescript-freedom-transition/)
 
+See [example](https://github.com/purescript-freedom/purescript-freedom-transition/blob/master/example/Main.purs).
+
 ## Installation
 
 ```
