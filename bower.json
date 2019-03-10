@@ -1,0 +1,31 @@
+{
+  "name": "purescript-freedom-transition",
+  "license": "MIT",
+  "homepage": "https://github.com/purescript-freedom/purescript-freedom-transition",
+  "authors": [
+    "Shinya Takahashi <s.takahashi313@gmail.com>"
+  ],
+  "description": "An easy way to perform animations when a purescript-freedom view enters or leaves the DOM",
+  "keywords": [
+    "purescript",
+    "virtual-dom",
+    "ui"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/purescript-freedom/purescript-freedom-transition.git"
+  },
+  "moduleType": [
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-freedom": "^0.6.0",
+    "purescript-js-timers": "^4.0.1"
+  }
+}

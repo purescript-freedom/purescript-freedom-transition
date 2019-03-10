@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "name": "purescript-freedom-transition",
+  "scripts": {
+    "postinstall": "bower i",
+    "bower": "bower",
+    "clean": "rm -rf output",
+    "build": "pulp build",
+    "test": "pulp test",
+    "start": "pulp build -I example && parcel ./example/index.html",
+    "demo": "rm ./example.*.js && pulp build -I example && parcel build ./example/index.html --no-source-maps -o ./index.html -d ./ --public-url ./",
+    "pulp:version": "pulp version",
+    "pulp:publish": "pulp publish",
+    "pulp:login": "pulp login"
+  },
+  "dependencies": {
+    "bower": "^1.8.4",
+    "parcel": "^1.11.0",
+    "pulp": "^12.3.1",
+    "purescript": "^0.12.3"
+  }
+}
