@@ -85,6 +85,7 @@ item i =
       .&.enter.enter-active {
         opacity: 1;
         transition: opacity 0.3s linear;
+        pointer-events: none;
       }
       .&.leave {
         opacity: 1;
@@ -92,5 +93,6 @@ item i =
       .&.leave.leave-active {
         opacity: 0;
         transition: opacity 0.3s linear;
+        pointer-events: none;
       }
       """
