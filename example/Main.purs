@@ -2,13 +2,13 @@ module Main where
 
 import Prelude
 
-import Data.Array ((..), snoc, last, delete)
+import Data.Array (delete, last, snoc, (..))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Freedom as Freedom
 import Freedom.Markup as H
-import Freedom.TransformF.Simple (VQueryF, transformF, select, reduce)
+import Freedom.TransformF.Simple (VQueryF, reduce, select, transformF)
 import Freedom.Transition (transitionGroup)
 import Freedom.VNode (VNode)
 

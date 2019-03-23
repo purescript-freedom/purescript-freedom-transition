@@ -9,12 +9,12 @@ import Prelude
 import Control.Monad.Free.Trans (FreeT)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Writer (runWriter, tell)
-import Data.Array (length, any, snoc, filter, foldRecM, modifyAtIndices, findIndex, insertAt)
+import Data.Array (any, filter, findIndex, foldRecM, insertAt, length, modifyAtIndices, snoc)
 import Data.Foldable (elem)
 import Data.Int (ceil)
 import Data.Maybe (Maybe(..), fromJust, maybe)
 import Data.Newtype (unwrap)
-import Data.String (Pattern(..), split, joinWith)
+import Data.String (Pattern(..), joinWith, split)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
 import Effect.Class (liftEffect)
@@ -22,7 +22,7 @@ import Effect.Timer (setTimeout)
 import Foreign.Object (alter, lookup, update)
 import Freedom.Markup as H
 import Freedom.Renderer.Diff (key)
-import Freedom.VNode (VNode(..), VElement(..), VObject, VRender, operations)
+import Freedom.VNode (VElement(..), VNode(..), VRender, VObject, operations)
 import Partial.Unsafe (unsafePartial)
 import Web.DOM.Element as E
 
