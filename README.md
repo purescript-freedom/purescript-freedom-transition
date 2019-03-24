@@ -10,8 +10,16 @@ See [example](https://github.com/purescript-freedom/purescript-freedom-transitio
 
 ## Installation
 
+### Bower
+
 ```
-bower install purescript-freedom-transition
+$ bower install purescript-freedom-transition
+```
+
+### Spago
+
+```
+$ spago install freedom-transition
 ```
 
 ## Documentation
