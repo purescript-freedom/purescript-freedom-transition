@@ -25,7 +25,7 @@
     "output"
   ],
   "dependencies": {
-    "purescript-freedom": "^1.0.0",
+    "purescript-freedom": "^1.4.1",
     "purescript-js-timers": "^4.0.1"
   }
 }
