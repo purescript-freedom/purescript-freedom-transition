@@ -21,7 +21,6 @@ import Effect.Class (liftEffect)
 import Effect.Timer (setTimeout)
 import Foreign.Object (alter, lookup, update)
 import Freedom.Markup as H
-import Freedom.Renderer.Diff (key)
 import Freedom.VNode (VElement(..), VNode(..), VRender, VObject, operations)
 import Partial.Unsafe (unsafePartial)
 import Web.DOM.Element as E
@@ -265,4 +264,4 @@ equalKey
    . VNode f state
   -> VNode f state
   -> Boolean
-equalKey a b = key a == key b
+equalKey (VNode a _) (VNode b _) = a == b
