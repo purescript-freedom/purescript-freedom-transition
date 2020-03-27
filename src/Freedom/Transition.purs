@@ -6,10 +6,8 @@ module Freedom.Transition
 
 import Prelude
 
-import Control.Monad.Free.Trans (FreeT)
-import Control.Monad.Trans.Class (lift)
 import Control.Monad.Writer (runWriter, tell)
-import Data.Array (any, filter, findIndex, foldRecM, insertAt, length, modifyAtIndices, snoc)
+import Data.Array (any, filter, findIndex, foldRecM, insertAt, length, modifyAtIndices, nubEq, snoc)
 import Data.Foldable (elem)
 import Data.Int (ceil)
 import Data.Maybe (Maybe(..), fromJust, maybe)
@@ -17,11 +15,12 @@ import Data.Newtype (unwrap)
 import Data.String (Pattern(..), joinWith, split)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
-import Effect.Class (liftEffect)
+import Effect (Effect)
 import Effect.Timer (setTimeout)
 import Foreign.Object (alter, lookup, update)
 import Freedom.Markup as H
-import Freedom.VNode (VElement(..), VNode(..), VRender, VObject, operations)
+import Freedom.UI (Operation, VNode, VObject, modifyVObject)
+import Freedom.UI.Class (getKey)
 import Partial.Unsafe (unsafePartial)
 import Web.DOM.Element as E
 
@@ -66,83 +65,79 @@ type Config =
 
 -- | Transition passed children.
 transitionGroup
-  :: forall f state
-   . Functor (f state)
-  => Config
-  -> Array (VNode f state)
-  -> VNode f state
+  :: forall state
+   . Config
+  -> Array (VNode state)
+  -> VNode state
 transitionGroup config children =
-  H.op $ H.div
-    # H.didCreate renderChildren
-    # H.didUpdate (transitionChildren config)
+  H.div
+    # H.renderingManually
+    # H.didCreate (renderChildren children)
+    # H.didUpdate (transitionChildren config children)
     # H.didDelete deleteChildren
-    # H.kids children
 
 renderChildren
-  :: forall f state
-   . Functor (f state)
-  => E.Element
-  -> FreeT (f state) (VRender f state) Unit
-renderChildren element = do
-  r <- lift operations
-  liftEffect $ r.getOriginChildren >>= r.renderChildren (E.toNode element)
+  :: forall state
+   . Array (VNode state)
+  -> E.Element
+  -> Operation state
+  -> Effect Unit
+renderChildren children element { renderer } =
+  renderer.renderChildren (E.toNode element) children
 
 deleteChildren
-  :: forall f state
-   . Functor (f state)
-  => E.Element
-  -> FreeT (f state) (VRender f state) Unit
-deleteChildren element = do
-  r <- lift operations
-  liftEffect $ r.renderChildren (E.toNode element) []
+  :: forall state
+   . E.Element
+  -> Operation state
+  -> Effect Unit
+deleteChildren element { renderer } =
+  renderer.renderChildren (E.toNode element) []
 
 transitionChildren
-  :: forall f state
-   . Functor (f state)
-  => Config
+  :: forall state
+   . Config
+  -> Array (VNode state)
   -> E.Element
-  -> FreeT (f state) (VRender f state) Unit
-transitionChildren config element = do
+  -> Operation state
+  -> Effect Unit
+transitionChildren config currents element { renderer } = do
   let node = E.toNode element
-  r <- lift operations
-  liftEffect do
-    currents <- r.getOriginChildren
-    prevs <- r.getLatestRenderedChildren
-    Tuple currents_ enterings <- pure $ willEnterVNodes config prevs currents
-    Tuple currents' leavings <- pure $ willLeaveVNodes config prevs currents_
-    if length enterings <= 0 && length leavings <= 0
-      then r.renderChildren node currents
-      else do
-        r.renderChildren node currents'
-        void $ setTimeout 0 $ r.renderChildren node $ startTransitionVNodes config currents'
-        when (length enterings > 0) $ flip (maybe $ pure unit) config.enter \t ->
-          void $ setTimeout (ceil $ unwrap t.delay) do
-            prevs' <- r.getLatestRenderedChildren
-            r.renderChildren node $ removeTransitionClassNames t enterings prevs'
-        when (length leavings > 0) $ flip (maybe $ pure unit) config.leave \t ->
-          void $ setTimeout (ceil $ unwrap t.delay) do
-            prevs' <- r.getLatestRenderedChildren
-            r.renderChildren node $ filter (not <<< isIncluded leavings) prevs'
+  prevs <- renderer.getLatestRenderedChildren
+  Tuple currents_ enterings <- pure $ willEnterVNodes config prevs currents
+  Tuple currents' leavings <- pure $ willLeaveVNodes config prevs currents_
+  if length enterings <= 0 && length leavings <= 0
+    then renderer.renderChildren node currents
+    else do
+      renderer.renderChildren node currents'
+      void $ setTimeout 0 $ renderer.renderChildren node $ startTransitionVNodes config currents'
+      when (length enterings > 0) $ flip (maybe $ pure unit) config.enter \t ->
+        void $ setTimeout (ceil $ unwrap t.delay) do
+          prevs' <- renderer.getLatestRenderedChildren
+          renderer.renderChildren node $ removeTransitionClassNames t enterings prevs'
+      when (length leavings > 0) $ flip (maybe $ pure unit) config.leave \t ->
+        void $ setTimeout (ceil $ unwrap t.delay) do
+          prevs' <- renderer.getLatestRenderedChildren
+          renderer.renderChildren node $ filter (not <<< isIncluded leavings) prevs'
 
 removeTransitionClassNames
-  :: forall f state
+  :: forall state
    . Transition
-  -> Array (VNode f state)
-  -> Array (VNode f state)
-  -> Array (VNode f state)
+  -> Array (VNode state)
+  -> Array (VNode state)
+  -> Array (VNode state)
 removeTransitionClassNames { startClassName, activeClassName } enterings vnodes =
   remove <$> vnodes
   where
     remove vnode =
       if isIncluded enterings vnode
-        then removeClassName startClassName >>> removeClassName activeClassName $ vnode
+        then modifyVObject (removeClassName startClassName >>> removeClassName activeClassName) vnode
         else vnode
 
 startTransitionVNodes
-  :: forall f state
+  :: forall state
    . Config
-  -> Array (VNode f state)
-  -> Array (VNode f state)
+  -> Array (VNode state)
+  -> Array (VNode state)
 startTransitionVNodes config firstRenderingVNodes =
   addEnterActive <<< addLeaveActive <$> firstRenderingVNodes
   where
@@ -156,112 +151,94 @@ startTransitionVNodes config firstRenderingVNodes =
         Just transition -> addActiveClassName transition vnode
 
 addActiveClassName
-  :: forall f state
+  :: forall state
    . Transition
-  -> VNode f state
-  -> VNode f state
-addActiveClassName { startClassName, activeClassName } vnode =
-  if hasClassName startClassName vnode && (not $ hasClassName activeClassName vnode)
-    then addClassName activeClassName vnode
-    else vnode
+  -> VNode state
+  -> VNode state
+addActiveClassName { startClassName, activeClassName } =
+  modifyVObject \vobject ->
+    if hasClassName startClassName vobject && (not $ hasClassName activeClassName vobject)
+      then addClassName activeClassName vobject
+      else vobject
 
 willEnterVNodes
-  :: forall f state
+  :: forall state
    . Config
-  -> Array (VNode f state)
-  -> Array (VNode f state)
-  -> Tuple (Array (VNode f state)) (Array (VNode f state))
+  -> Array (VNode state)
+  -> Array (VNode state)
+  -> Tuple (Array (VNode state)) (Array (VNode state))
 willEnterVNodes config prevs currents =
   case config.enter of
     Nothing -> Tuple currents []
     Just { startClassName } ->
       let addFirstClassName acc vnode =
-            if isIncluded prevs vnode || hasClassName startClassName vnode
+            if isIncluded prevs vnode
               then pure acc
               else do
                 tell [ vnode ]
                 pure $ modifyAtIndices
                   [ unsafePartial $ fromJust $ findIndex (equalKey vnode) acc ]
-                  (addClassName startClassName)
+                  (modifyVObject $ addClassName startClassName)
                   acc
        in runWriter $ foldRecM addFirstClassName currents currents
 
 willLeaveVNodes
-  :: forall f state
+  :: forall state
    . Config
-  -> Array (VNode f state)
-  -> Array (VNode f state)
-  -> Tuple (Array (VNode f state)) (Array (VNode f state))
+  -> Array (VNode state)
+  -> Array (VNode state)
+  -> Tuple (Array (VNode state)) (Array (VNode state))
 willLeaveVNodes config prevs currents =
   case config.leave of
     Nothing -> Tuple currents []
     Just { startClassName } ->
       let addFirstClassName acc vnode =
-            if isIncluded currents vnode || hasClassName startClassName vnode
+            if isIncluded currents vnode
               then pure acc
               else do
                 tell [ vnode ]
                 pure $ unsafePartial $ fromJust $ insertAt
                   (unsafePartial $ fromJust $ findIndex (equalKey vnode) prevs)
-                  (addClassName startClassName vnode)
+                  (modifyVObject (addClassName startClassName) vnode)
                   acc
        in runWriter $ foldRecM addFirstClassName currents prevs
 
-hasClassName :: forall f state. String -> VNode f state -> Boolean
-hasClassName name vnode =
-  case vnode of
-    VNode _ (Element r) -> has r
-    VNode _ (OperativeElement _ r) -> has r
-    _ -> true
-  where
-    has :: forall m. VObject f state m -> Boolean
-    has r =
-      case lookup "className" r.props of
-        Nothing -> false
-        Just val ->
-          elem name $ split (Pattern " ") val
+hasClassName :: forall state. String -> VObject state -> Boolean
+hasClassName name vobject =
+  case lookup "className" vobject.props of
+    Nothing -> false
+    Just val ->
+      elem name $ split (Pattern " ") val
 
-addClassName :: forall f state. String -> VNode f state -> VNode f state
-addClassName name vnode =
-  case vnode of
-    VNode k (Element r) -> VNode k $ Element $ add r
-    VNode k (OperativeElement bf r) -> VNode k $ OperativeElement bf $ add r
-    _ -> vnode
+addClassName :: forall state. String -> VObject state -> VObject state
+addClassName name vobject =
+  vobject { props = alter add' "className" vobject.props }
   where
-    add :: forall m. VObject f state m -> VObject f state m
-    add r = r { props = alter add' "className" r.props }
-
     add' current =
       case current of
         Nothing -> Just name
         Just val ->
-          Just $ joinWith " " $ snoc (split (Pattern " ") val) name
+          Just $ joinWith " " $ nubEq $ snoc (split (Pattern " ") val) name
 
-removeClassName :: forall f state. String -> VNode f state -> VNode f state
-removeClassName name vnode =
-  case vnode of
-    VNode k (Element r) -> VNode k $ Element $ remove r
-    VNode k (OperativeElement bf r) -> VNode k $ OperativeElement bf $ remove r
-    _ -> vnode
+removeClassName :: forall state. String -> VObject state -> VObject state
+removeClassName name vobject =
+  vobject { props = update remove' "className" vobject.props }
   where
-    remove :: forall m. VObject f state m -> VObject f state m
-    remove r = r { props = update remove' "className" r.props }
-
     remove' val =
       let classes = filter (_ /= name) $ split (Pattern " ") val
        in if length classes <= 0 then Nothing else Just $ joinWith " " classes
 
 isIncluded
-  :: forall f state
-   . Array (VNode f state)
-  -> VNode f state
+  :: forall state
+   . Array (VNode state)
+  -> VNode state
   -> Boolean
 isIncluded vnodes vnode =
   any (equalKey vnode) vnodes
 
 equalKey
-  :: forall f state
-   . VNode f state
-  -> VNode f state
+  :: forall state
+   . VNode state
+  -> VNode state
   -> Boolean
-equalKey (VNode a _) (VNode b _) = a == b
+equalKey a b = getKey 0 a == getKey 0 b
