@@ -56,7 +56,8 @@ view state =
 
 item :: Int -> VNode State
 item i =
-  H.keyed (show i) $ H.div
+  H.div
+    # H.key (show i)
     # H.css css
     # H.onClick (const removeItem)
     # H.kids [ H.t $ "Item " <> show i <> ": if clicked, will delete"]
