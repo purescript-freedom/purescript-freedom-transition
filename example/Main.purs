@@ -8,20 +8,16 @@ import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Freedom as Freedom
 import Freedom.Markup as H
-import Freedom.TransformF.Simple (VQueryF, reduce, select, transformF)
 import Freedom.Transition (transitionGroup)
-import Freedom.VNode (VNode)
+import Freedom.UI (VNode)
 
 type State = Array Int
-
-type Html = VNode VQueryF State
 
 main :: Effect Unit
 main = Freedom.run
   { selector: "#app"
   , initialState
   , subscriptions: []
-  , transformF
   , view
   }
 
@@ -32,11 +28,11 @@ initialState = 0 .. 2
 
 -- View
 
-view :: State -> Html
+view :: State -> VNode State
 view state =
-  H.el $ H.div # H.kids
-    [ H.el $ H.h1 # H.kids [ H.t "Transition demo" ]
-    , H.el $ H.button
+  H.div # H.kids
+    [ H.h1 # H.kids [ H.t "Transition demo" ]
+    , H.button
         # H.onClick (const addItem)
         # H.kids [ H.t "Add Item" ]
     , transitionGroup transition $ item <$> state
@@ -54,18 +50,19 @@ view state =
           , delay: Milliseconds 300.0
           }
       }
-    addItem = do
-      lastInt <- fromMaybe (-1) <<< last <$> select
-      reduce \s -> snoc s $ lastInt + 1
+    addItem { query } = do
+      lastInt <- fromMaybe (-1) <<< last <$> query.select
+      query.reduce \s -> snoc s $ lastInt + 1
 
-item :: Int -> Html
+item :: Int -> VNode State
 item i =
-  H.keyed (show i) $ H.el $ H.div
+  H.div
+    # H.key (show i)
     # H.css css
     # H.onClick (const removeItem)
     # H.kids [ H.t $ "Item " <> show i <> ": if clicked, will delete"]
   where
-    removeItem = reduce $ delete i
+    removeItem { query } = query.reduce $ delete i
     css =
       """
       .& {
